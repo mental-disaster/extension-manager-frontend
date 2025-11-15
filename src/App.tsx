@@ -2,28 +2,33 @@ import { useEffect, useState } from "react";
 import { createCustomExtension, deleteCustomExtension, getExtensions, updateExtensionBlockStatus } from "./api/extensions";
 import type { Extension } from "./api/extensions";
 import SkeletonSection from "./components/SkeletonSection";
+import Spinner from "./components/Spinner";
+import ErrorScreen from "./components/ErrorScreen";
 
 function App() {
   const [loading, setLoading] = useState(true);
+  const [initialLoadError, setInitialLoadError] = useState("");
+  const [updating, setUpdating] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [newExtName, setNewExtName] = useState<string>("");
-  const [updateFiexedError, setUpdateFixedError] = useState<String>("");
-  const [createCustomError, setCreateCustomError] = useState<String>("");
-  const [deleteCustomError, setDeleteCustomError] = useState<String>("");
+  const [updateFixedError, setUpdateFixedError] = useState<string>("");
+  const [createCustomError, setCreateCustomError] = useState<string>("");
+  const [deleteCustomError, setDeleteCustomError] = useState<string>("");
   const [extensions, setExtensions] = useState<Extension[]>([]);
 
   useEffect(() => {
     async function load() {
       try {
         setLoading(true);
-        setUpdateFixedError("");
-        setCreateCustomError("");
+        setInitialLoadError("");
 
         const extensions = await getExtensions();
 
         setExtensions(extensions);
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
+        setInitialLoadError(err?.message ?? "초기 데이터 로딩에 실패했습니다.");
       } finally {
         setLoading(false);
       }
@@ -36,6 +41,7 @@ function App() {
     setUpdateFixedError('');
 
     try {
+      setUpdating(ext.name);
       const updated = await updateExtensionBlockStatus(ext.name, newValue);
 
       setExtensions((prev) => 
@@ -44,6 +50,8 @@ function App() {
     } catch (err: any) {
       console.error(err);
       setUpdateFixedError(err?.message ?? "고정 확장자 수정 중 오류가 발생했습니다.");
+    } finally {
+      setUpdating(null);
     }
   }
   
@@ -82,12 +90,15 @@ function App() {
     setDeleteCustomError('');
 
     try {
+      setDeleting(delExtName);
       await deleteCustomExtension(delExtName);
 
       setExtensions(prev => prev.filter(ext => ext.name !== delExtName));
     } catch (err: any) {
       console.error(err);
       setDeleteCustomError(err.message ?? "확장자 삭제 중 오류가 발생했습니다.");
+    } finally {
+      setDeleting(null);
     }
   }
 
@@ -110,6 +121,8 @@ function App() {
             <SkeletonSection />
             <SkeletonSection />
           </>
+        ) : initialLoadError ? (
+          <ErrorScreen message={initialLoadError} onRetry={() => window.location.reload()} />
         ) : (
           <>
             {/* 고정 확장자 설정 */}
@@ -128,28 +141,32 @@ function App() {
               </p>
 
               <div className="flex flex-wrap gap-2">
-                {extensions.filter((ext) => ext.type === 'FIXED').map((fiexedExt: Extension) => (
+                {extensions.filter((ext) => ext.type === 'FIXED').map((fixedExt: Extension) => (
                   <label
-                    key={fiexedExt.name}
+                    key={fixedExt.name}
                     className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs cursor-default"
                   >
                     <input
                       type="checkbox"
                       className="h-3 w-3 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                      checked={fiexedExt.isBlocked}
+                      checked={fixedExt.isBlocked}
+                      disabled={updating === fixedExt.name}
                       onChange={(e) =>
-                        handleFixedExtensionToggle(fiexedExt, e.target.checked)
+                        handleFixedExtensionToggle(fixedExt, e.target.checked)
                       }
                     />
                     <span className="font-mono text-[11px]">
-                      .{fiexedExt.name}
+                      .{fixedExt.name}
                     </span>
+                    {updating === fixedExt.name && (
+                      <Spinner />
+                    )}
                   </label>
                 ))}
               </div>
-              {updateFiexedError && (
+              {updateFixedError && (
                 <p className="text-xs text-red-600 mt-1 ml-2">
-                  {updateFiexedError}
+                  {updateFixedError}
                 </p>
               )}
             </section>
@@ -176,8 +193,10 @@ function App() {
                     <input
                       type="text"
                       placeholder="예: pdf, hwp, zip"
-                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500
+                      disabled:bg-slate-100 disabled:border-slate-300 disabled:text-slate-400 disabled:cursor-not-allowed"
                       value={newExtName}
+                      disabled={creating}
                       onChange={(e) => {
                         setNewExtName(e.target.value);
                       }}
@@ -206,7 +225,7 @@ function App() {
                 )}
               </div>
 
-              {/* 커스텀 확장자 리스트 – 더미 데이터 */}
+              {/* 커스텀 확장자 리스트 */}
               <div className="border-t border-slate-100 pt-3">
                 <h3 className="mb-2 text-xs font-semibold text-slate-600">
                   등록된 커스텀 확장자 ({extensions.filter((ext) => ext.type === 'CUSTOM').length}/200)
@@ -228,6 +247,9 @@ function App() {
                       >
                         ×
                       </button>
+                      {deleting === ext.name && (
+                        <Spinner />
+                      )}
                     </span>
                   ))}
                 </div>
@@ -241,6 +263,7 @@ function App() {
             </section>
           </>
         )}
+
       </main>
     </div>
   );
