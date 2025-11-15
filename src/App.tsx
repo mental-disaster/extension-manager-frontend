@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createCustomExtension, deleteCustomExtension, getExtensions, updateExtensionBlockStatus } from "./api/extensions";
 import type { Extension } from "./api/extensions";
 import SkeletonSection from "./components/SkeletonSection";
@@ -16,6 +16,8 @@ function App() {
   const [createCustomError, setCreateCustomError] = useState<string>("");
   const [deleteCustomError, setDeleteCustomError] = useState<string>("");
   const [extensions, setExtensions] = useState<Extension[]>([]);
+
+  const newExtInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -36,6 +38,12 @@ function App() {
 
     load();
   }, []);
+
+  useEffect(() => {
+    if (!creating) {
+      newExtInputRef.current?.focus();
+    }
+  }, [creating]);
 
   const handleFixedExtensionToggle = async (ext: Extension, newValue: boolean) => {
     setUpdateFixedError('');
@@ -132,7 +140,7 @@ function App() {
                   고정 확장자 관리
                 </h2>
                 <span className="text-xs text-slate-500">
-                  자주 차단하는 실행/스크립트 파일 확장자를 미리 정의하여 관리합니다.
+                  자주 차단하는 미리 정의된 실행/스크립트 파일 확장자를 관리합니다.
                 </span>
               </div>
 
@@ -191,6 +199,7 @@ function App() {
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <div className="flex-1 flex items-center gap-2">
                     <input
+                      ref={newExtInputRef}
                       type="text"
                       placeholder="예: pdf, hwp, zip"
                       className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500
